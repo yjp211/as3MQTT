@@ -93,6 +93,12 @@ package com.godpaper.mqtt.as3.core
 		protected var retain:uint;
 		protected var remainingLength:uint;
 		protected var remainPosition:uint;
+
+		public var isReadOver:Boolean=false;
+		private var isReadHead:Boolean=false;
+		private var isReadRemainingLength:Boolean=false;
+		private var multiplier:uint=1;
+		private var bodyPos:uint=0;
 		
 		///* stores the will of the client {willFlag,willQos,willRetainFlag} */
 		public static var WILL:Array;
@@ -184,6 +190,10 @@ package com.godpaper.mqtt.as3.core
 			return this.readUnsignedByte() & 0x01;
 		}
 		
+		/** 
+		 *  not work
+		 *  add by yujiapeng<yjp211@gmail.com>
+		 */
 		public function readRemainingLength():uint
 		{
 			this.position = 1;
@@ -231,6 +241,69 @@ package com.godpaper.mqtt.as3.core
 		}
 		
 		public function writeMessageFromBytes(input:IDataInput):void
+		{
+
+			//先读head
+			if(!this.isReadHead)
+			{
+				if (input.bytesAvailable > 0)
+				{
+					this.position = 0;
+					this.writeType(input.readUnsignedByte());
+					this.isReadHead = true;
+				}else{
+					return
+				}
+				
+			}
+
+			if(!this.isReadRemainingLength){
+				var multiplier :uint = 1;
+				var remainLength:uint = 0;
+				do 
+				{
+					if (input.bytesAvailable > 0)
+					{
+						var le:uint = input.readUnsignedByte()
+						this.remainingLength += (le & 127) * this.multiplier
+						this.multiplier *=128;
+						
+					}else{
+						return
+					}
+					
+				}
+				while ((le & 128) != 0);
+
+				writeMessageType( type + (dup << 3) + (qos << 1) + retain );
+				this.isReadRemainingLength = true;
+			}
+
+
+			if(this.remainingLength >0 && this.bodyPos < this.remainingLength){
+				if (input.bytesAvailable > 0){
+					var inputRemain:uint = input.bytesAvailable;
+					var wantRead:uint = this.remainingLength-this.bodyPos
+					if(wantRead > inputRemain){
+						input.readBytes(this, this.remainPosition+this.bodyPos, inputRemain)
+						this.bodyPos += inputRemain
+					}else{
+						input.readBytes(this, this.remainPosition+this.bodyPos, wantRead)
+						this.bodyPos += wantRead
+					}
+				}else{
+					return
+				}
+			}
+
+			if(this.bodyPos == this.remainingLength){
+				this.isReadOver=true
+				serialize();
+			}
+
+		}
+
+		public function writeMessageFromBytesOrigin(input:IDataInput):void
 		{
 			this.position = 0;
 			this.writeType(input.readUnsignedByte());

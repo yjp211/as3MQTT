@@ -572,6 +572,8 @@ package com.godpaper.mqtt.as3.impl
 			LOG.info("Ping sent.");
 		}
 
+		private var packet:MQTT_Protocol=new MQTT_Protocol();
+		//result.writeMessageFromBytes(socket);
 		//
 		protected function onSocketData(event:ProgressEvent):void
 		{
@@ -580,17 +582,28 @@ package com.godpaper.mqtt.as3.impl
 			
 			while( socket.bytesAvailable ){
 				//FixHead
-				var result:MQTT_Protocol=new MQTT_Protocol();
-					result.writeMessageFromBytes(socket);
 				
+				packet.writeMessageFromBytes(socket);
+				if(packet.isReadOver){
+					return
+				}else {
+					 var result:MQTT_Protocol = packet
+					 packet = new MQTT_Protocol()
+				}
+
 				LOG.info("Protocol Type:{0}", result.readType().toString(16));
 				LOG.info("Protocol Length:{0}", result.length);
 				LOG.info("Protocol DUP:{0}", result.readDUP());
 				LOG.info("Protocol QoS:{0}", result.readQoS());
 				LOG.info("Protocol RETAIN:{0}", result.readRETAIN());
-				LOG.info("Protocol RemainingLength:{0}", result.readRemainingLength());
-				LOG.info("Protocol Variable Header Length:{0}", result.readMessageValue().length);
-				LOG.info("Protocol PayLoad Length:{0}", result.readPayLoad().length);
+
+				/** 
+				 *  not work
+				 *  add by yujiapeng<yjp211@gmail.com>
+				 */
+				//LOG.info("Protocol RemainingLength:{0}", result.readRemainingLength());
+				//LOG.info("Protocol Variable Header Length:{0}", result.readMessageValue().length);
+				//LOG.info("Protocol PayLoad Length:{0}", result.readPayLoad().length);
 				
 				switch (result.readType())
 				{
